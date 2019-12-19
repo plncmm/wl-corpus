@@ -35,7 +35,7 @@ class SamplePicker:
         self.current_samples = []
         for directory in self.samples_directories:
             for sample in os.listdir(directory):
-                with open(sample, "r", encoding="utf-8") as samplefile:
+                with open(directory + "/" + sample, "r", encoding="utf-8") as samplefile:
                     self.current_samples.append(samplefile.read())
     def pick(self,n):
         self.picked_samples = []
