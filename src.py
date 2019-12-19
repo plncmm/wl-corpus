@@ -27,16 +27,17 @@ class WlTextRawLoader:
             json.dump(self.corpus, jsonfile, ensure_ascii=False, indent=4)
         
 class SamplePicker:
-    def __init__(self,corpus_location,samples_location):
+    def __init__(self,corpus_location,samples_location,samples_rejected_location):
         self.samples_location = samples_location
         with open(corpus_location) as json_file:
             self.corpus = json.load(json_file)
-        self.samples_directories = [samples_location + filename for filename in os.listdir(samples_location)]
+        self.samples_filenames = [samples_location + filename for filename in os.listdir(samples_location)]
+        self.samples_rejected_filenames = [samples_rejected_location + filename for filename in os.listdir(samples_rejected_location)]
+        self.samples_filenames = self.samples_filenames + self.samples_rejected_filenames
         self.current_samples = []
-        for directory in self.samples_directories:
-            for sample in os.listdir(directory):
-                with open(directory + "/" + sample, "r", encoding="utf-8") as samplefile:
-                    self.current_samples.append(samplefile.read())
+        for sample in self.samples_filenames:
+            with open(sample, "r", encoding="utf-8") as samplefile:
+                self.current_samples.append(samplefile.read())
     def pick(self,n):
         self.picked_samples = []
         while len(self.picked_samples) < n:
@@ -44,10 +45,7 @@ class SamplePicker:
             self.picked_samples.extend(random.choices(self.corpus,k=remaining_samples_n))
             self.picked_samples = [sample for sample in self.picked_samples if sample not in self.current_samples]
             logger.info("picked {} samples".format(len(self.picked_samples)))
-        current_time = str(int(time.time()))
-        current_dir = self.samples_location + current_time + "/"
-        os.mkdir(current_dir)
         for sample in self.picked_samples:
             filename = hashlib.md5(sample.encode("utf-8")).hexdigest()
-            with open(current_dir + filename, "w", encoding="utf-8") as textfile:
+            with open(self.samples_location + filename + ".txt", "w", encoding="utf-8") as textfile:
                 textfile.write(sample)
