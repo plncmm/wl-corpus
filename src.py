@@ -87,7 +87,7 @@ class Descriptor:
             "tokens_n_sum": sum(self.tokens_n),
             "tokens_n_mean_ci": mean_confidence_interval(self.tokens_n),
             "tokens_normal_dis": True if self.normal_test[1] < 0.05 else False,
-            "tokens_shapiro_p": self.normal_test[0],
+            "tokens_shapiro_p": self.normal_test[1],
             "tokens_n_sd": statistics.stdev(self.tokens_n),
             "tokens_n_var": statistics.variance(self.tokens_n),
             "tokens_n_median": statistics.median(self.tokens_n),
