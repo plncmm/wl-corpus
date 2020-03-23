@@ -5,9 +5,21 @@ import json
 import random
 import time
 import hashlib
+import statistics
+import scipy.stats
+from spacy.lang.es import Spanish
+nlp = Spanish()
+spacy_tokenizer = nlp.Defaults.create_tokenizer(nlp)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+def mean_confidence_interval(data, confidence=0.95):
+    n = len(data)
+    m, se = statistics.mean(data), scipy.stats.sem(data)
+    h = se * scipy.stats.t.ppf((1 + confidence) / 2., n-1)
+    return m, m-h, m+h
+
 
 def sample_filenames_from_dir(directory):
     samples_filenames = [directory + filename for filename in os.listdir(directory)]
@@ -19,6 +31,11 @@ def samples_loader(filenames):
         with open(sample, "r", encoding="utf-8") as samplefile:
             current_samples.append(samplefile.read())
     return current_samples
+
+def tokenizer(document):
+    result = list(spacy_tokenizer(document))
+    result = [str(token) for token in result]
+    return result
 
 class WlTextRawLoader:
     def __init__(self, raw_data_directory):
@@ -57,3 +74,27 @@ class SamplePicker:
             filename = hashlib.md5(sample.encode("utf-8")).hexdigest()
             with open(self.samples_location + filename + ".txt", "w", encoding="utf-8") as textfile:
                 textfile.write(sample)
+
+class Descriptor:
+    def __init__(self,samples_location):
+        self.samples_filenames = sample_filenames_from_dir(samples_location)
+        self.samples = samples_loader(self.samples_filenames)
+    def calculate_and_write(self,report_location):
+        self.samples_tokenized = [tokenizer(sample) for sample in self.samples]
+        self.tokens_n = [len(document) for document in self.samples_tokenized]
+        self.normal_test = scipy.stats.shapiro(self.tokens_n)
+        self.report = {
+            "tokens_n_sum": sum(self.tokens_n),
+            "tokens_n_mean_ci": mean_confidence_interval(self.tokens_n),
+            "tokens_normal_dis": True if self.normal_test[1] < 0.05 else False,
+            "tokens_shapiro_p": self.normal_test[0],
+            "tokens_n_sd": statistics.stdev(self.tokens_n),
+            "tokens_n_var": statistics.variance(self.tokens_n),
+            "tokens_n_median": statistics.median(self.tokens_n),
+            "tokens_n_mode": statistics.mode(self.tokens_n),
+            "tokens_n": self.tokens_n,
+            "samples_tokenized": self.samples_tokenized,
+            "samples": self.samples
+        }
+        with open(report_location, "w", encoding="utf-8") as f:
+            json.dump(self.report, f, ensure_ascii=False, indent=2)
