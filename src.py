@@ -9,6 +9,17 @@ import hashlib
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+def sample_filenames_from_dir(directory):
+    samples_filenames = [directory + filename for filename in os.listdir(directory)]
+    return samples_filenames
+
+def samples_loader(filenames):
+    current_samples = []
+    for sample in filenames:
+        with open(sample, "r", encoding="utf-8") as samplefile:
+            current_samples.append(samplefile.read())
+    return current_samples
+
 class WlTextRawLoader:
     def __init__(self, raw_data_directory):
         self.filenames = [raw_data_directory + filename for filename in os.listdir(raw_data_directory)]
@@ -31,13 +42,10 @@ class SamplePicker:
         self.samples_location = samples_location
         with open(corpus_location) as json_file:
             self.corpus = json.load(json_file)
-        self.samples_filenames = [samples_location + filename for filename in os.listdir(samples_location)]
-        self.samples_rejected_filenames = [samples_rejected_location + filename for filename in os.listdir(samples_rejected_location)]
+        self.samples_filenames = sample_filenames_from_dir(samples_location)
+        self.samples_rejected_filenames = sample_filenames_from_dir(samples_rejected_location)
         self.samples_filenames = self.samples_filenames + self.samples_rejected_filenames
-        self.current_samples = []
-        for sample in self.samples_filenames:
-            with open(sample, "r", encoding="utf-8") as samplefile:
-                self.current_samples.append(samplefile.read())
+        self.current_samples = samples_loader(self.samples_filenames)
     def pick(self,n):
         self.picked_samples = []
         while len(self.picked_samples) < n:
