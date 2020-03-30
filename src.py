@@ -81,6 +81,7 @@ class Descriptor:
         self.samples = samples_loader(self.samples_filenames)
     def calculate_and_write(self,report_location):
         self.samples_tokenized = [tokenizer(sample) for sample in self.samples]
+        self.vocab = list(set([word for document in self.samples_tokenized for word in document]))
         self.tokens_n = [len(document) for document in self.samples_tokenized]
         self.normal_test = scipy.stats.shapiro(self.tokens_n)
         self.report = {
@@ -92,6 +93,8 @@ class Descriptor:
             "tokens_n_var": statistics.variance(self.tokens_n),
             "tokens_n_median": statistics.median(self.tokens_n),
             "tokens_n_mode": statistics.mode(self.tokens_n),
+            "vocab_n": len(self.vocab),
+            "vocab": self.vocab,
             "tokens_n": self.tokens_n,
             "samples_tokenized": self.samples_tokenized,
             "samples": self.samples
