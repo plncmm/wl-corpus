@@ -59,6 +59,7 @@ class SamplePicker:
         self.samples_location = samples_location
         with open(corpus_location) as json_file:
             self.corpus = json.load(json_file)
+        logger.info("corpus size: {} documents".format(len(self.corpus)))
         self.samples_filenames = sample_filenames_from_dir(samples_location)
         self.samples_rejected_filenames = sample_filenames_from_dir(samples_rejected_location)
         self.samples_filenames = self.samples_filenames + self.samples_rejected_filenames
@@ -101,3 +102,26 @@ class Descriptor:
         }
         with open(report_location, "w", encoding="utf-8") as f:
             json.dump(self.report, f, ensure_ascii=False, indent=2)
+
+def move_file(from_folder,to_folder,filename):
+    try:
+        os.replace(from_folder+filename,to_folder+filename)
+        logger.info(from_folder+filename + " moved")
+    except FileNotFoundError:
+        logger.error(from_folder+filename+" not found")
+class Discard:
+    def __init__(self,from_folder="samples/",to_folder="samples_rejected/"):
+        self.file_list = []
+        self.from_folder = from_folder
+        self.to_folder = to_folder
+    def from_txt(self, location):
+        with open(location, encoding="utf-8", mode="r") as f:
+            for line in f:
+                line = line.rstrip()
+                if line.endswith(".txt"):
+                    self.file_list.append(line)
+                else:
+                    self.file_list.append(line+".txt")
+    def discard(self):
+        for filename in self.file_list:
+            move_file(self.from_folder,self.to_folder,filename)
