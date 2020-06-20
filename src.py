@@ -147,7 +147,6 @@ class Descriptor:
             "tokens_n_sd": statistics.stdev(self.tokens_n),
             "tokens_n_var": statistics.variance(self.tokens_n),
             "tokens_n_median": statistics.median(self.tokens_n),
-            "tokens_n_mode": statistics.mode(self.tokens_n),
             "vocab_n": len(self.vocab),
             "vocab": self.vocab,
             "tokens_n": self.tokens_n,
