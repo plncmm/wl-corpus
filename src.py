@@ -140,6 +140,7 @@ class Descriptor:
         self.tokens_n = [len(document) for document in self.samples_tokenized]
         self.normal_test = scipy.stats.shapiro(self.tokens_n)
         self.report = {
+            "documents_n":len(self.samples),
             "tokens_n_sum": sum(self.tokens_n),
             "tokens_n_mean_ci": mean_confidence_interval(self.tokens_n),
             "tokens_normal_dis": True if self.normal_test[1] < 0.05 else False,
