@@ -99,7 +99,7 @@ class SamplePicker:
         samples_rejected_location: Directory path for the directory where rejected samples are stored.
         """
         self.samples_location = samples_location
-        with open(corpus_location) as json_file:
+        with open(corpus_location, encoding="utf-8") as json_file:
             self.corpus = json.load(json_file)
         logger.info("corpus size: {} documents".format(len(self.corpus)))
         self.samples_filenames = sample_filenames_from_dir(samples_location)
