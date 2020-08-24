@@ -44,8 +44,13 @@ def samples_loader(filenames):
     """
     current_samples = []
     for sample in filenames:
-        with open(sample, "r", encoding="utf-8") as samplefile:
-            current_samples.append(samplefile.read())
+        try:
+            with open(sample, "r", encoding="utf-8") as samplefile:
+                current_samples.append(samplefile.read())
+        except UnicodeDecodeError:
+            with open(sample, "r", encoding="latin-1") as samplefile:
+                current_samples.append(samplefile.read())
+        
     return current_samples
 
 def tokenizer(document):
