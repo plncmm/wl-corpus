@@ -5,11 +5,14 @@ import json
 import random
 import time
 import hashlib
+import sshtunnel
 import statistics
 import scipy.stats
+import dotenv
 from spacy.lang.es import Spanish
 nlp = Spanish()
 spacy_tokenizer = nlp.Defaults.create_tokenizer(nlp)
+dotenv.load_dotenv(".env")
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -33,9 +36,9 @@ def mean_confidence_interval(data, confidence=0.95):
 
 def sample_filenames_from_dir(directory):
     """
-    Given a file path, returns a list of filenames in that directory.
+    Given a file path, returns a list of .txt filenames in that directory.
     """
-    samples_filenames = [directory + filename for filename in os.listdir(directory)]
+    samples_filenames = [directory + filename for filename in os.listdir(directory) if filename.endswith(".txt")]
     return samples_filenames
 
 def samples_loader(filenames):
@@ -60,6 +63,28 @@ def tokenizer(document):
     result = list(spacy_tokenizer(document))
     result = [str(token) for token in result]
     return result
+
+def load_corpus_from_dw():
+    with sshtunnel.open_tunnel((os.environ.get("TUNNEL_HOST"), int(os.environ.get("TUNNEL_PORT"))),
+         ssh_username=os.environ.get("TUNNEL_USER"),
+         ssh_password=os.environ.get("TUNNEL_PASSWORD"),
+         remote_bind_address=(os.environ.get("PG_HOST"), int(os.environ.get("PG_PORT")))) as server:
+        query = """
+        
+    SELECT data."Sospecha diagnóstica" AS document
+    FROM 
+        data
+    WHERE
+        length(data."Sospecha diagnóstica") > 100
+    GROUP BY
+        data."Sospecha diagnóstica"
+    ORDER BY
+        random()
+        
+        """
+        logger.info("fetching data from data warehouse")
+        corpus = pd.read_sql_query(query,f'postgresql://{os.environ.get("PG_USER")}:{os.environ.get("PG_PASSWORD")}@127.0.0.1:{server.local_bind_port}/wl').document.tolist()
+        return corpus
 
 class WlTextRawLoader:
     """
@@ -94,7 +119,7 @@ class SamplePicker:
     """
     Class to create a sample picker object to pick random documents from a corpus.
     """
-    def __init__(self,corpus_location,samples_location,samples_rejected_location):
+    def __init__(self,samples_location,samples_rejected_location,corpus_location,corpus='both'):
         """
         Constructs a sample picker.
 
@@ -103,10 +128,16 @@ class SamplePicker:
         samples_location: Directory path for the directory where the past picked samples are stored.
         samples_rejected_location: Directory path for the directory where rejected samples are stored.
         """
-        self.samples_location = samples_location
-        with open(corpus_location, encoding="utf-8") as json_file:
-            self.corpus = json.load(json_file)
+        if corpus_location != "dw":
+            if corpus == 'both':
+                with open(corpus_location, encoding="utf-8") as json_file:
+                    self.corpus = json.load(json_file)
+            else:
+                raise NotImplementedError
+        else:
+            self.corpus = load_corpus_from_dw()
         logger.info("corpus size: {} documents".format(len(self.corpus)))
+        self.samples_location = samples_location
         self.samples_filenames = sample_filenames_from_dir(samples_location)
         self.samples_rejected_filenames = sample_filenames_from_dir(samples_rejected_location)
         self.samples_filenames = self.samples_filenames + self.samples_rejected_filenames
