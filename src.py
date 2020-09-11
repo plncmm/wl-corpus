@@ -17,6 +17,19 @@ dotenv.load_dotenv(".env")
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+DENTAL_SPECIALTIES = [
+    "ENDODONCIA",
+    "OPERATORIA",
+    "ENDODONCIA",
+    "REHABILITACION: PROTESIS FIJA",
+    "CIRUGIA MAXILO FACIAL",
+    "ODONTOLOGIA INDIFERENCIADO",
+    "REHABILITACION: PROTESIS REMOVIBLE",
+    "TRASTORNOS TEMPOROMANDIBULARES Y DOLOR OROFACIAL",
+    "CIRUGIA BUCAL",
+    "PERIODONCIA"
+]
+
 def mean_confidence_interval(data, confidence=0.95):
     """
     Given a list of numbers, computes the confidence interval of the sample.
@@ -64,18 +77,24 @@ def tokenizer(document):
     result = [str(token) for token in result]
     return result
 
-def load_corpus_from_dw():
+def load_corpus_from_dw(specialties = []):
     with sshtunnel.open_tunnel((os.environ.get("TUNNEL_HOST"), int(os.environ.get("TUNNEL_PORT"))),
          ssh_username=os.environ.get("TUNNEL_USER"),
          ssh_password=os.environ.get("TUNNEL_PASSWORD"),
          remote_bind_address=(os.environ.get("PG_HOST"), int(os.environ.get("PG_PORT")))) as server:
-        query = """
+        if specialties:
+            specialties_condition = ",".join(f"'{specialty}'" for specialty in specialties)
+            specialties_condition = f"AND especialidad in ({specialties_condition})"
+        else:
+            specialties_condition = ""
+        query = f"""
         
     SELECT data."Sospecha diagnóstica" AS document
     FROM 
         data
     WHERE
         length(data."Sospecha diagnóstica") > 100
+        {specialties_condition}
     GROUP BY
         data."Sospecha diagnóstica"
     ORDER BY
@@ -135,7 +154,12 @@ class SamplePicker:
             else:
                 raise NotImplementedError
         else:
-            self.corpus = load_corpus_from_dw()
+            if corpus == "dental":
+                self.corpus = load_corpus_from_dw(DENTAL_SPECIALTIES)
+            elif corpus == "both":
+                self.corpus = load_corpus_from_dw()
+            else:
+                raise NotImplementedError
         logger.info("corpus size: {} documents".format(len(self.corpus)))
         self.samples_location = samples_location
         self.samples_filenames = sample_filenames_from_dir(samples_location)
