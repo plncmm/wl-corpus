@@ -14,6 +14,8 @@ nlp = Spanish()
 spacy_tokenizer = nlp.Defaults.create_tokenizer(nlp)
 dotenv.load_dotenv(".env")
 
+#pylint: disable=no-member
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
