@@ -79,14 +79,15 @@ def tokenizer(document):
     result = [str(token) for token in result]
     return result
 
-def load_corpus_from_dw(specialties = []):
+def load_corpus_from_dw(specialties = [], inverse = False):
     with sshtunnel.open_tunnel((os.environ.get("TUNNEL_HOST"), int(os.environ.get("TUNNEL_PORT"))),
          ssh_username=os.environ.get("TUNNEL_USER"),
          ssh_password=os.environ.get("TUNNEL_PASSWORD"),
          remote_bind_address=(os.environ.get("PG_HOST"), int(os.environ.get("PG_PORT")))) as server:
+        _not = "not" if inverse else ""
         if specialties:
             specialties_condition = ",".join(f"'{specialty}'" for specialty in specialties)
-            specialties_condition = f"AND especialidad in ({specialties_condition})"
+            specialties_condition = f"AND especialidad {_not} in ({specialties_condition})"
         else:
             specialties_condition = ""
         query = f"""
@@ -140,7 +141,7 @@ class SamplePicker:
     """
     Class to create a sample picker object to pick random documents from a corpus.
     """
-    def __init__(self,samples_location,samples_rejected_location,corpus_location,corpus='both'):
+    def __init__(self,samples_location,samples_rejected_location,corpus_location,corpus='*'):
         """
         Constructs a sample picker.
 
@@ -150,15 +151,16 @@ class SamplePicker:
         samples_rejected_location: Directory path for the directory where rejected samples are stored.
         """
         if corpus_location != "dw":
-            if corpus == 'both':
+            if corpus == '*':
                 with open(corpus_location, encoding="utf-8") as json_file:
                     self.corpus = json.load(json_file)
             else:
                 raise NotImplementedError
         else:
-            if corpus == "dental":
-                self.corpus = load_corpus_from_dw(DENTAL_SPECIALTIES)
-            elif corpus == "both":
+            if corpus.endswith("dental"):
+                inverse = True if corpus.startswith("!") else False
+                self.corpus = load_corpus_from_dw(DENTAL_SPECIALTIES,inverse)
+            elif corpus == "*":
                 self.corpus = load_corpus_from_dw()
             else:
                 raise NotImplementedError
