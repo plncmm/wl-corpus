@@ -4,7 +4,7 @@ import argparse
 from src import SamplePicker
 
 parser = argparse.ArgumentParser(description='Diagnostic sample picker', usage='%(prog)s [options]')
-parser.add_argument("--corpus_location", help="Location of the JSON corpus.", default="corpus.json")
+parser.add_argument("--corpus_location", help="Location of the JSON corpus. [<json filename>|dw]", default="corpus.json")
 parser.add_argument("--corpus", help="Subcorpus name [*|dental|!dental]", default="*")
 parser.add_argument("--samples_folder", help="Directory where the diagnostics are.", default="samples/")
 parser.add_argument("--samples_rejected_folder", help="Directory where the rejected diagnostics are.", default="samples_rejected/")
