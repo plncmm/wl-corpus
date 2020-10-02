@@ -228,8 +228,10 @@ def move_file(from_folder,to_folder,filename):
     try:
         os.replace(from_folder+filename,to_folder+filename)
         logger.info(from_folder+filename + " moved")
+        return True
     except FileNotFoundError:
         logger.error(from_folder+filename+" not found")
+        return False
 class Discarder:
     """
     Class to create a file discarder.
@@ -256,5 +258,8 @@ class Discarder:
         """
         Executes a discarding process.
         """
+        discarded_files_n = 0
         for filename in self.file_list:
-            move_file(self.from_folder,self.to_folder,filename)
+            if move_file(self.from_folder,self.to_folder,filename):
+                discarded_files_n += 1
+        logger.info(f"{discarded_files_n} files were discarded")
