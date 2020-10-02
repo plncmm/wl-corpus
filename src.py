@@ -5,14 +5,12 @@ import json
 import random
 import time
 import hashlib
-import sshtunnel
 import statistics
 import scipy.stats
-import dotenv
+import psycopg2
 from spacy.lang.es import Spanish
 nlp = Spanish()
 spacy_tokenizer = nlp.Defaults.create_tokenizer(nlp)
-dotenv.load_dotenv(".env")
 
 #pylint: disable=no-member
 
@@ -79,34 +77,44 @@ def tokenizer(document):
     result = [str(token) for token in result]
     return result
 
-def load_corpus_from_dw(specialties = [], inverse = False):
-    with sshtunnel.open_tunnel((os.environ.get("TUNNEL_HOST"), int(os.environ.get("TUNNEL_PORT"))),
-         ssh_username=os.environ.get("TUNNEL_USER"),
-         ssh_password=os.environ.get("TUNNEL_PASSWORD"),
-         remote_bind_address=(os.environ.get("PG_HOST"), int(os.environ.get("PG_PORT")))) as server:
+class Corpus:
+    def __init__(self, port, specialties = [], inverse = False):
+        self.specialties = specialties
+        self.inverse = inverse
         _not = "not" if inverse else ""
         if specialties:
             specialties_condition = ",".join(f"'{specialty}'" for specialty in specialties)
-            specialties_condition = f"AND especialidad {_not} in ({specialties_condition})"
+            self.specialties_condition = f"AND especialidad {_not} in ({specialties_condition})"
         else:
-            specialties_condition = ""
-        query = f"""
-        
+            self.specialties_condition = ""
+        connection = psycopg2.connect(user = os.environ.get("PG_USER"),
+                                password = os.environ.get("PG_PASSWORD"),
+                                host = "127.0.0.1",
+                                port = port,
+                                database = "wl")
+        self.cursor = connection.cursor()
+        self.view_query = f"""
     SELECT data."Sospecha diagnóstica" AS document
     FROM 
         data
     WHERE
         length(data."Sospecha diagnóstica") > 100
-        {specialties_condition}
+        {self.specialties_condition}
     GROUP BY
         data."Sospecha diagnóstica"
     ORDER BY
         random()
-        
         """
-        logger.info("fetching data from data warehouse")
-        corpus = pd.read_sql_query(query,f'postgresql://{os.environ.get("PG_USER")}:{os.environ.get("PG_PASSWORD")}@127.0.0.1:{server.local_bind_port}/wl').document.tolist()
-        return corpus
+    def __len__(self):
+        query = f"SELECT COUNT(v.*) FROM ({self.view_query}) AS v"
+        self.cursor.execute(query)
+        count = self.cursor.fetchone()[0]
+        return count
+    def sample(self,n):
+        query = f"SELECT v.* FROM ({self.view_query}) AS v LIMIT {n}"
+        self.cursor.execute(query)
+        result = [r[0] for r in self.cursor.fetchall()]
+        return result
 
 class WlTextRawLoader:
     """
@@ -141,7 +149,7 @@ class SamplePicker:
     """
     Class to create a sample picker object to pick random documents from a corpus.
     """
-    def __init__(self,samples_location,samples_rejected_location,corpus_location,corpus='*'):
+    def __init__(self,samples_location,samples_rejected_location,corpus_location,port,corpus='*'):
         """
         Constructs a sample picker.
 
@@ -159,9 +167,9 @@ class SamplePicker:
         else:
             if corpus.endswith("dental"):
                 inverse = True if corpus.startswith("!") else False
-                self.corpus = load_corpus_from_dw(DENTAL_SPECIALTIES,inverse)
+                self.corpus = Corpus(port,DENTAL_SPECIALTIES,inverse)
             elif corpus == "*":
-                self.corpus = load_corpus_from_dw()
+                self.corpus = Corpus(port)
             else:
                 raise NotImplementedError
         logger.info("corpus size: {} documents".format(len(self.corpus)))
@@ -177,7 +185,8 @@ class SamplePicker:
         self.picked_samples = []
         while len(self.picked_samples) < n:
             remaining_samples_n = n - len(self.picked_samples)
-            self.picked_samples.extend(random.choices(self.corpus,k=remaining_samples_n))
+            current_picked_samples = random.choices(self.corpus,k=remaining_samples_n) if not isinstance(self.corpus,Corpus) else self.corpus.sample(remaining_samples_n)
+            self.picked_samples.extend(current_picked_samples)
             self.picked_samples = [sample for sample in self.picked_samples if sample not in self.current_samples]
             logger.info("picked {} samples".format(len(self.picked_samples)))
         for sample in self.picked_samples:
