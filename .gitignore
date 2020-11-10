@@ -3,3 +3,6 @@
 /samples_rejected/*
 !samples_rejected/.gitkeep 
 .env
+*.pyc
+*.json
+/notebooks/*
