@@ -6,3 +6,4 @@
 *.pyc
 *.json
 /notebooks/*
+*.txt
