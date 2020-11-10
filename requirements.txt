@@ -5,3 +5,4 @@ sshtunnel
 python-dotenv
 SQLAlchemy
 psycopg2-binary
+minio
