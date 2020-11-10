@@ -8,6 +8,9 @@ import hashlib
 import statistics
 import scipy.stats
 import psycopg2
+import pathlib
+import minio
+import sshtunnel
 from spacy.lang.es import Spanish
 nlp = Spanish()
 spacy_tokenizer = nlp.Defaults.create_tokenizer(nlp)
@@ -69,6 +72,36 @@ def samples_loader(filenames):
         
     return current_samples
 
+def create_tunnel(tunnel_host,tunnel_port,tunnel_user,tunnel_password,pg_host,pg_port):
+    server = sshtunnel.open_tunnel((tunnel_host, int(tunnel_port)),
+        ssh_username=tunnel_user,
+        ssh_password=tunnel_password,
+        remote_bind_address=(pg_host, int(pg_port)))
+    server.start()
+    port = server.local_bind_port
+    return port
+
+def samples_loader_from_minio(server,access_key,secret_key,return_filename=False):
+    minio_client = minio.Minio(
+        server,
+        access_key=access_key,
+        secret_key=secret_key,
+        secure=True,
+    )
+    logger.info("downloading samples")
+    objects = minio_client.list_objects("brat-data",prefix='wl_ground_truth/')
+    samples = []
+    for o in objects:
+        if o.object_name.endswith(".txt"):
+            txt_object = minio_client.get_object("brat-data", o.object_name)
+            txt_name = pathlib.Path(o.object_name).name
+            if return_filename:
+                samples.append((txt_name,txt_object.read().decode("utf-8")))
+            else:
+                samples.append(txt_object.read().decode("utf-8"))
+    logger.info(f"{len(samples)} samples were downloaded")
+    return samples
+
 def tokenizer(document):
     """
     From a string, returns a list of tokens.
@@ -94,7 +127,7 @@ class Corpus:
                                 database = "wl")
         self.cursor = connection.cursor()
         self.view_query = f"""
-    SELECT data."Sospecha diagnóstica" AS document
+    SELECT data."Sospecha diagnóstica" AS document, max(especialidad) as specialty
     FROM 
         data
     WHERE
@@ -115,7 +148,15 @@ class Corpus:
         self.cursor.execute(query)
         result = [r[0] for r in self.cursor.fetchall()]
         return result
-
+    def fetchall(self,include_specialty=True):
+        logger.info("fetching entire corpus")
+        query = f"SELECT v.* FROM ({self.view_query}) AS v"
+        self.cursor.execute(query)
+        if include_specialty:
+            result = self.cursor.fetchall()
+        else:
+            result = [r[0] for r in self.cursor.fetchall()]
+        return result
 class WlTextRawLoader:
     """
     Class to construct a text corpus from a csv.
@@ -198,12 +239,19 @@ class Descriptor:
     """
     Class to create a text corpus descriptor.
     """
-    def __init__(self,samples_location):
+    def __init__(self,samples_location = "local",samples=None,samples_folder=None,server=None,access_key=None,secret_key=None):
         """
         Construct the descriptor given a directory path to the directory which contains the text samples as txt.
         """
-        self.samples_filenames = sample_filenames_from_dir(samples_location)
-        self.samples = samples_loader(self.samples_filenames)
+        if samples_location == "local":
+            self.samples_filenames = sample_filenames_from_dir(samples_location)
+            self.samples = samples_loader(self.samples_filenames)
+        elif samples_location == "minio":
+            self.samples = samples_loader_from_minio(server,access_key,secret_key)
+        elif samples_location == "var":
+            self.samples = samples
+        else:
+            raise NotImplementedError
     def calculate_and_write(self,report_location):
         """
         Calculate the description metrics and writes a report as a json file.
