@@ -29,12 +29,7 @@ samples = src.samples_loader_from_minio(
     return_filename=True
 )
 
-d = src.Descriptor(
-    samples_location="var",
-    samples=[sample[1] for sample in samples]
-)
-d.calculate_and_write("samples_description.json")
-#TODO: refactor below code
+#TODO: refactor code below
 corpus = src.Corpus(port)
 dictionary = pd.DataFrame(corpus.fetchall(),columns=["diagnostic","specialty"])
 samples_df = pd.DataFrame(samples,columns=["filename","diagnostic"]).sort_values("diagnostic")
@@ -69,3 +64,23 @@ with open("summary_by_specialty.json", "w", encoding="utf-8") as f:
         "by_corpus": samples_summary_corpus.to_dict(orient="index")
     }
     json.dump(summary, f, ensure_ascii=False, indent=2)
+
+dental_samples = [filename for filename,specialty in mapper.items() if specialty in src.DENTAL_SPECIALTIES]
+
+d = src.Descriptor(
+    samples_location="var",
+    samples=[sample[1] for sample in samples]
+)
+d.calculate_and_write("samples_description.json")
+
+d_d = src.Descriptor(
+    samples_location="var",
+    samples=[sample[1] for sample in samples if sample[0] in dental_samples]
+)
+d_d.calculate_and_write("samples_description_dental.json")
+
+d_nd = src.Descriptor(
+    samples_location="var",
+    samples=[sample[1] for sample in samples if not sample[0] in dental_samples]
+)
+d_nd.calculate_and_write("samples_description_not_dental.json")
