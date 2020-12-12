@@ -25,14 +25,13 @@ port = src.create_tunnel(
 samples = src.samples_loader_from_minio(
     os.environ.get('MINIO_SERVER'),
     os.environ.get('MINIO_ACCESS_KEY'),
-    os.environ.get('MINIO_SECRET_KEY'),
-    return_filename=True
+    os.environ.get('MINIO_SECRET_KEY')
 )
 
 #TODO: refactor code below
 corpus = src.Corpus(port)
 dictionary = pd.DataFrame(corpus.fetchall(),columns=["diagnostic","specialty"])
-samples_df = pd.DataFrame(samples,columns=["filename","diagnostic"]).sort_values("diagnostic")
+samples_df = pd.DataFrame([(sample.name,sample.text) for sample in samples],columns=["filename","diagnostic"]).sort_values("diagnostic")
 samples_specialty = samples_df.merge(dictionary,how="left")
 samples_specialty_na = samples_specialty[samples_specialty.specialty.isna()]
 samples_specialty_no_na = samples_specialty.dropna()
@@ -69,18 +68,18 @@ dental_samples = [filename for filename,specialty in mapper.items() if specialty
 
 d = src.Descriptor(
     samples_location="var",
-    samples=[sample[1] for sample in samples]
+    samples=samples
 )
 d.calculate_and_write("samples_description.json")
 
 d_d = src.Descriptor(
     samples_location="var",
-    samples=[sample[1] for sample in samples if sample[0] in dental_samples]
+    samples=[sample for sample in samples if sample.name in dental_samples]
 )
 d_d.calculate_and_write("samples_description_dental.json")
 
 d_nd = src.Descriptor(
     samples_location="var",
-    samples=[sample[1] for sample in samples if not sample[0] in dental_samples]
+    samples=[sample for sample in samples if not sample.name in dental_samples]
 )
 d_nd.calculate_and_write("samples_description_not_dental.json")

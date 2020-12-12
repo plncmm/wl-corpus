@@ -65,10 +65,10 @@ def samples_loader(filenames):
     for sample in filenames:
         try:
             with open(sample, "r", encoding="utf-8") as samplefile:
-                current_samples.append(samplefile.read())
+                current_samples.append(Document(pathlib.Path(sample).stem,samplefile.read()))
         except UnicodeDecodeError:
             with open(sample, "r", encoding="latin-1") as samplefile:
-                current_samples.append(samplefile.read())
+                current_samples.append(Document(pathlib.Path(sample).stem,samplefile.read()))
         
     return current_samples
 
@@ -81,7 +81,7 @@ def create_tunnel(tunnel_host,tunnel_port,tunnel_user,tunnel_password,pg_host,pg
     port = server.local_bind_port
     return port
 
-def samples_loader_from_minio(server,access_key,secret_key,return_filename=False):
+def samples_loader_from_minio(server,access_key,secret_key):
     minio_client = minio.Minio(
         server,
         access_key=access_key,
@@ -90,17 +90,21 @@ def samples_loader_from_minio(server,access_key,secret_key,return_filename=False
     )
     logger.info("downloading samples")
     objects = minio_client.list_objects("brat-data",prefix='wl_ground_truth/')
-    samples = []
+    documents = []
     for o in objects:
         if o.object_name.endswith(".txt"):
-            txt_object = minio_client.get_object("brat-data", o.object_name)
-            txt_name = pathlib.Path(o.object_name).name
-            if return_filename:
-                samples.append((txt_name,txt_object.read().decode("utf-8")))
-            else:
-                samples.append(txt_object.read().decode("utf-8"))
-    logger.info(f"{len(samples)} samples were downloaded")
-    return samples
+            object_object = minio_client.get_object("brat-data", o.object_name)
+            object_path = pathlib.Path(o.object_name)
+            object_name = object_path.stem
+            object_text = object_object.read().decode("utf-8")
+            try:
+                object_annotation = minio_client.get_object("brat-data", o.object_name[:-3]+"ann").read().decode("utf-8")
+            except:
+                object_annotation = None
+            document = Document(object_name,object_text,object_annotation)
+            documents.append(document)
+    logger.info(f"{len(documents)} samples were downloaded")
+    return documents
 
 def tokenizer(document):
     """
@@ -109,6 +113,26 @@ def tokenizer(document):
     result = list(spacy_tokenizer(document))
     result = [str(token) for token in result]
     return result
+
+def parse_annotation(annotation):
+    entities = []
+    for line in annotation.split("\n"):
+        if line.startswith("T"):
+            elements = line.split("\t")
+            annotation = elements[1].split(" ")
+            type_ = annotation[0]
+            limits = tuple(annotation[1:])
+            text = elements[2]
+            entities.append((type_,text,limits))
+    return entities
+
+class Document:
+    def __init__(self, name, text, annotation = None):
+        self.text = text
+        self.annotation = annotation
+        self.name = name
+        if self.annotation:
+            self.entities = parse_annotation(self.annotation)
 
 class Corpus:
     def __init__(self, port, specialties = [], inverse = False):
@@ -256,7 +280,7 @@ class Descriptor:
         """
         Calculate the description metrics and writes a report as a json file.
         """
-        self.samples_tokenized = [tokenizer(sample) for sample in self.samples]
+        self.samples_tokenized = [tokenizer(sample.text) for sample in self.samples]
         self.vocab = list(set([word for document in self.samples_tokenized for word in document]))
         self.tokens_n = [len(document) for document in self.samples_tokenized]
         self.normal_test = scipy.stats.shapiro(self.tokens_n)
@@ -273,7 +297,7 @@ class Descriptor:
             "vocab": self.vocab,
             "tokens_n": self.tokens_n,
             "samples_tokenized": self.samples_tokenized,
-            "samples": self.samples
+            "samples": [sample.text for sample in self.samples]
         }
         with open(report_location, "w", encoding="utf-8") as f:
             json.dump(self.report, f, ensure_ascii=False, indent=2)
