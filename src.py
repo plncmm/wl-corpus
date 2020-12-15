@@ -133,6 +133,10 @@ class Document:
         self.name = name
         if self.annotation:
             self.entities = parse_annotation(self.annotation)
+        else:
+            self.entities = None
+    def __repr__(self):
+        return self.text
 
 class Corpus:
     def __init__(self, port, specialties = [], inverse = False):
