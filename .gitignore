@@ -7,3 +7,4 @@
 *.json
 /notebooks/*
 *.txt
+*.ann
