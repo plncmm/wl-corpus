@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import warnings
 import itertools
+import logging
 
 
 def start_of_chunk(prev_tag, tag, prev_type, type_):
@@ -237,10 +238,11 @@ def check_right_label_overlapping_span(entity, inconsistencies):
             result.append(i)
     return result
 
+
 def check_false(entity, inconsistencies):
     result = []
     if not entity in inconsistencies:
-        result = [entity] 
+        result = [entity]
     return result
 
 
@@ -265,11 +267,11 @@ def ner_report(y_true, y_pred):
 
     for t in true_nested_entities:
         inconsistencies = get_inconsistencies(t, pred_nested_entities)
-        print(t, inconsistencies)
+        logging.debug(f"true nest: {t}, inconsistencies: {inconsistencies}")
         t_ = t[:]
         for t2 in t_:
             if t2 in inconsistencies:
-                print(t2, "correct")
+                logging.debug(f"{t2} correct")
                 correct.append(t2)
                 t.pop(t.index(t2))
                 inconsistencies.pop(inconsistencies.index(t2))
@@ -278,8 +280,7 @@ def ner_report(y_true, y_pred):
             current_right_label_overlapping_span = check_right_label_overlapping_span(
                 t2, inconsistencies)
             if current_right_label_overlapping_span:
-                print(t2, current_right_label_overlapping_span,
-                      "right_label_overlapping_span")
+                logging.debug(f"{t2} {current_right_label_overlapping_span} right_label_overlapping_span")
                 for a in current_right_label_overlapping_span:
                     right_label_overlapping_span.append((t2, a))
                 t.pop(t.index(t2))
@@ -290,8 +291,7 @@ def ner_report(y_true, y_pred):
             current_wrong_label_overlapping_span = check_wrong_label_overlapping_span(
                 t2, inconsistencies)
             if current_wrong_label_overlapping_span:
-                print(t2, current_wrong_label_overlapping_span,
-                      "wrong_label_overlapping_span")
+                logging.debug(f"{t2} {current_wrong_label_overlapping_span} wrong_label_overlapping_span")
                 for a in current_wrong_label_overlapping_span:
                     wrong_label_overlapping_span.append((t2, a))
                 t.pop(t.index(t2))
@@ -301,8 +301,7 @@ def ner_report(y_true, y_pred):
             current_wrong_label_right_span = check_wrong_label_right_span(
                 t2, inconsistencies)
             if current_wrong_label_right_span:
-                print(t2, current_wrong_label_right_span,
-                      "wrong_label_right_span")
+                logging.debug(f"{t2} {current_wrong_label_right_span} wrong_label_right_span")
                 for a in current_wrong_label_right_span:
                     wrong_label_right_span.append((t2, a))
                 t.pop(t.index(t2))
@@ -313,16 +312,14 @@ def ner_report(y_true, y_pred):
             current_false_negative = check_false(
                 t2, inconsistencies)
             if current_false_negative:
-                print(t2,
-                      "false_negative")
+                logging.debug(f"{t2} false_negative")
                 for a in current_false_negative:
                     false_negative.append(t2)
                 t.pop(t.index(t2))
-        print(t, inconsistencies)
-        print("###")
-    rest = set(flatten(pred_nested_entities)) - set(correct) - set(false_negative) - set(flatten(wrong_label_right_span)) - set(flatten(wrong_label_overlapping_span)) - set(flatten(right_label_overlapping_span))
+    rest = set(flatten(pred_nested_entities)) - set(correct) - set(false_negative) - set(flatten(wrong_label_right_span)
+                                                                                         ) - set(flatten(wrong_label_overlapping_span)) - set(flatten(right_label_overlapping_span))
     for r in list(rest):
-        print(r, "false_positive")
+        logging.debug(f"{r} false_positive")
         false_positive.append(r)
     report = {
         "n_exact_matches": len(correct),
