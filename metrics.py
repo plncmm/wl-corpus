@@ -282,7 +282,8 @@ def ner_report(y_true, y_pred):
             current_right_label_overlapping_span = check_right_label_overlapping_span(
                 t2, inconsistencies)
             if current_right_label_overlapping_span:
-                logging.debug(f"{t2} {current_right_label_overlapping_span} right_label_overlapping_span")
+                logging.debug(
+                    f"{t2} {current_right_label_overlapping_span} right_label_overlapping_span")
                 for a in current_right_label_overlapping_span:
                     right_label_overlapping_span.append((t2, a))
                 t.pop(t.index(t2))
@@ -293,7 +294,8 @@ def ner_report(y_true, y_pred):
             current_wrong_label_overlapping_span = check_wrong_label_overlapping_span(
                 t2, inconsistencies)
             if current_wrong_label_overlapping_span:
-                logging.debug(f"{t2} {current_wrong_label_overlapping_span} wrong_label_overlapping_span")
+                logging.debug(
+                    f"{t2} {current_wrong_label_overlapping_span} wrong_label_overlapping_span")
                 for a in current_wrong_label_overlapping_span:
                     wrong_label_overlapping_span.append((t2, a))
                 t.pop(t.index(t2))
@@ -303,7 +305,8 @@ def ner_report(y_true, y_pred):
             current_wrong_label_right_span = check_wrong_label_right_span(
                 t2, inconsistencies)
             if current_wrong_label_right_span:
-                logging.debug(f"{t2} {current_wrong_label_right_span} wrong_label_right_span")
+                logging.debug(
+                    f"{t2} {current_wrong_label_right_span} wrong_label_right_span")
                 for a in current_wrong_label_right_span:
                     wrong_label_right_span.append((t2, a))
                 t.pop(t.index(t2))
@@ -339,6 +342,7 @@ def ner_report(y_true, y_pred):
     }
     return report
 
+
 def read_separate_predictions(predictions_path):
     annotations = {}
     for entity in os.listdir(predictions_path):
@@ -358,20 +362,20 @@ def read_separate_predictions(predictions_path):
                     predicted.append([predicted_entity])
                 else:
                     annotations[entity_name].append({
-                        "sentence":sentence,
-                        "true":true,
-                        "predicted":predicted
+                        "sentence": sentence,
+                        "true": true,
+                        "predicted": predicted
                     })
                     sentence = []
                     true = []
                     predicted = []
 
     annotations_consolidated = []
-    for i,(_,val) in enumerate(annotations.items()):
+    for i, (_, val) in enumerate(annotations.items()):
         if i == 0:
             annotations_consolidated = copy.deepcopy(val)
         else:
-            for j,s in enumerate(val):
+            for j, s in enumerate(val):
                 for k in range(len(s["sentence"])):
                     current_true_annotation = annotations_consolidated[j]["true"][k]
                     new_true_annotation = s["true"][k]
@@ -379,7 +383,8 @@ def read_separate_predictions(predictions_path):
                         pass
                     elif "O" in current_true_annotation:
                         current_true_annotation.extend(new_true_annotation)
-                        current_true_annotation.pop(current_true_annotation.index("O"))
+                        current_true_annotation.pop(
+                            current_true_annotation.index("O"))
                     else:
                         current_true_annotation.extend(new_true_annotation)
 
@@ -388,24 +393,33 @@ def read_separate_predictions(predictions_path):
                     if new_predicted_annotation[0] == "O":
                         pass
                     elif "O" in current_predicted_annotation:
-                        current_predicted_annotation.extend(new_predicted_annotation)
-                        current_predicted_annotation.pop(current_predicted_annotation.index("O"))
+                        current_predicted_annotation.extend(
+                            new_predicted_annotation)
+                        current_predicted_annotation.pop(
+                            current_predicted_annotation.index("O"))
                     else:
-                        current_predicted_annotation.extend(new_predicted_annotation)
-    y_trues = [annotations_consolidated[i]["true"] for i in range(len(annotations_consolidated))]
-    y_predicteds = [annotations_consolidated[i]["predicted"] for i in range(len(annotations_consolidated))]
-    sentences = [annotations_consolidated[i]["sentence"] for i in range(len(annotations_consolidated))]
+                        current_predicted_annotation.extend(
+                            new_predicted_annotation)
+    y_trues = [annotations_consolidated[i]["true"]
+               for i in range(len(annotations_consolidated))]
+    y_predicteds = [annotations_consolidated[i]["predicted"]
+                    for i in range(len(annotations_consolidated))]
+    sentences = [annotations_consolidated[i]["sentence"]
+                 for i in range(len(annotations_consolidated))]
     return y_trues, y_predicteds, sentences
+
 
 def get_text_span(entity, sentences):
     sentences = [item for sublist in sentences for item in sublist + ['O']]
     start, end = entity[1], entity[2]
-    span = range(start,end+1)
+    span = range(start, end+1)
     tokens_span = [sentences[e] for e in span]
     return " ".join(tokens_span)
 
-def get_error_text_list(errors,sentences):
+
+def get_error_text_list(errors, sentences):
     return [(e[0], get_text_span(e, sentences)) for e in errors]
 
-def get_error_pair_text_list(error_pairs,sentences):
+
+def get_error_pair_text_list(error_pairs, sentences):
     return [(e[0][0], get_text_span(e[0], sentences), e[1][0], get_text_span(e[1], sentences)) for e in error_pairs]
