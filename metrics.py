@@ -396,3 +396,16 @@ def read_separate_predictions(predictions_path):
     y_predicteds = [annotations_consolidated[i]["predicted"] for i in range(len(annotations_consolidated))]
     sentences = [annotations_consolidated[i]["sentence"] for i in range(len(annotations_consolidated))]
     return y_trues, y_predicteds, sentences
+
+def get_text_span(entity, sentences):
+    sentences = [item for sublist in sentences for item in sublist + ['O']]
+    start, end = entity[1], entity[2]
+    span = range(start,end+1)
+    tokens_span = [sentences[e] for e in span]
+    return " ".join(tokens_span)
+
+def get_error_text_list(errors,sentences):
+    return [(e[0], get_text_span(e, sentences)) for e in errors]
+
+def get_error_pair_text_list(error_pairs,sentences):
+    return [(e[0][0], get_text_span(e[0], sentences), e[1][0], get_text_span(e[1], sentences)) for e in error_pairs]
