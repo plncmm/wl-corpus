@@ -3,6 +3,8 @@ import pandas as pd
 import warnings
 import itertools
 import logging
+import copy
+import os
 
 
 def start_of_chunk(prev_tag, tag, prev_type, type_):
@@ -336,3 +338,61 @@ def ner_report(y_true, y_pred):
         "right_label_overlapping_span": right_label_overlapping_span,
     }
     return report
+
+def read_separate_predictions(predictions_path):
+    annotations = {}
+    for entity in os.listdir(predictions_path):
+        entity_path = predictions_path / entity
+        entity_name = entity_path.stem
+        annotations[entity_name] = []
+        with open(entity_path, "r", encoding="utf-8") as f:
+            sentence = []
+            true = []
+            predicted = []
+            for line in f:
+                line = line.rstrip()
+                if line != "":
+                    token, true_entity, predicted_entity = line.split(" ")
+                    sentence.append(token)
+                    true.append([true_entity])
+                    predicted.append([predicted_entity])
+                else:
+                    annotations[entity_name].append({
+                        "sentence":sentence,
+                        "true":true,
+                        "predicted":predicted
+                    })
+                    sentence = []
+                    true = []
+                    predicted = []
+
+    annotations_consolidated = []
+    for i,(_,val) in enumerate(annotations.items()):
+        if i == 0:
+            annotations_consolidated = copy.deepcopy(val)
+        else:
+            for j,s in enumerate(val):
+                for k in range(len(s["sentence"])):
+                    current_true_annotation = annotations_consolidated[j]["true"][k]
+                    new_true_annotation = s["true"][k]
+                    if new_true_annotation[0] == "O":
+                        pass
+                    elif "O" in current_true_annotation:
+                        current_true_annotation.extend(new_true_annotation)
+                        current_true_annotation.pop(current_true_annotation.index("O"))
+                    else:
+                        current_true_annotation.extend(new_true_annotation)
+
+                    current_predicted_annotation = annotations_consolidated[j]["predicted"][k]
+                    new_predicted_annotation = s["predicted"][k]
+                    if new_predicted_annotation[0] == "O":
+                        pass
+                    elif "O" in current_predicted_annotation:
+                        current_predicted_annotation.extend(new_predicted_annotation)
+                        current_predicted_annotation.pop(current_predicted_annotation.index("O"))
+                    else:
+                        current_predicted_annotation.extend(new_predicted_annotation)
+    y_trues = [annotations_consolidated[i]["true"] for i in range(len(annotations_consolidated))]
+    y_predicteds = [annotations_consolidated[i]["predicted"] for i in range(len(annotations_consolidated))]
+    sentences = [annotations_consolidated[i]["sentence"] for i in range(len(annotations_consolidated))]
+    return y_trues, y_predicteds, sentences
