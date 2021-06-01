@@ -8,3 +8,6 @@
 /notebooks/*
 *.txt
 *.ann
+.vscode
+*.tsv
+*.csv
